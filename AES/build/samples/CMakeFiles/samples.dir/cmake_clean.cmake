@@ -1,0 +1,13 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/samples.dir/main.cpp.obj"
+  "CMakeFiles/samples.dir/main.cpp.obj.d"
+  "libsamples.dll.a"
+  "samples.exe"
+  "samples.exe.manifest"
+  "samples.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/samples.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

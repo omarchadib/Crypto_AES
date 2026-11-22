@@ -1,0 +1,153 @@
+# Implémentation de AES-128 en C++
+
+**Omar CHADIB – MSIoT**
+
+Implémentation du chiffrement AES-128 (un bloc de 16 octets) en C++, validée tour par tour contre les vecteurs de référence du NIST (FIPS 197).
+
+## Sommaire
+
+1. [Choix du langage](#1--choix-du-langage)
+2. [Implémentation](#2--implémentation)
+3. [Tests](#3--tests)
+4. [Difficultés](#4--difficultés)
+5. [Annexe : pseudo-code de KeyExpansion](#5--annexe--pseudo-code-de-keyexpansion)
+
+
+## 1 – Implémentation
+
+L'arborescence regroupe dans des fichiers séparés :
+
+- les **types** (clé, bloc, état, sous-clés) ;
+- les **tables** (SBOX et RCON) ;
+- les **transformations** (`addRoundKey`, `subBytes`, `mixColumns`, `shiftRows`, `xtime`) ;
+- l'**algorithme final** (`Cipher`).
+
+```
+AES
+├── imp
+│   ├── inc
+│   │   ├── Cipher.hpp
+│   │   ├── KeySchedule.hpp
+│   │   ├── Tables.hpp
+│   │   ├── Transforms.hpp
+│   │   └── Types.hpp
+│   ├── src
+│   │   ├── Cipher.cpp
+│   │   ├── KeySchedule.cpp
+│   │   └── Transforms.cpp
+│   └── CMakeLists.txt
+├── samples
+│   ├── CMakeLists.txt
+│   └── main.cpp
+├── CMakeLists.txt
+└── compile_and_execute.sh
+```
+
+- `imp/` (implémentation) contient les fichiers `inc/*.hpp` et `src/*.cpp` de toutes les étapes de l'algorithme AES.
+- `samples/` contient le `main` qui teste la fonction `encryptBlock` implémentée dans `Cipher.cpp` :
+
+```cpp
+Block encryptBlock(const Block& block, const RoundKeys& roundKeys,
+                   std::vector<Block>* trace) {
+```
+
+Les traces des rounds (1 → 10) sont ensuite comparées aux références du NIST. Ces références sont définies dans le `main()`.
+
+### Compilation
+
+La compilation passe par CMake (`CMakeLists.txt`), qui prend les `.hpp` et `.cpp` du projet, puis exécute le `main`. Le script `compile_and_execute.sh` compile et lance l'algorithme :
+
+```bash
+cmake -S . -B build -G "MinGW Makefiles"
+
+cmake --build build
+
+./build/samples/samples.exe
+
+cmake --install build --prefix install
+./install/bin/samples.exe
+```
+
+## 2 – Tests
+
+Le `main()` chiffre un bloc de 16 octets et le valide selon les étapes suivantes :
+
+1. Initialisation du texte en clair (plaintext)
+2. Initialisation de la clé AES-128
+3. Valeurs de référence NIST après chaque tour
+4. Expansion de la clé initiale en clés de tour
+5. Chiffrement du bloc et récupération des états intermédiaires
+6. Vérification du nombre d'états enregistrés
+7. Comparaison des états intermédiaires avec les références NIST
+8. Vérification du texte chiffré final
+9. Bilan global des tests
+
+### Résultat attendu
+
+```
+========== TEST AES-128 NIST ==========
+
+TEXTE EN CLAIR : 00112233445566778899aabbccddeeff
+CLE AES        : 000102030405060708090a0b0c0d0e0f
+
+========== VERIFICATION DES TOURS ==========
+
+Apres ARK initial  [OK]
+Fin du tour 1      [OK]
+...
+Fin du tour 10     [OK]
+
+========== RESULTAT DU CHIFFREMENT ==========
+
+Texte chiffre obtenu : 69c4e0d86a7b0430d8cdb78070b4c55a  [OK]
+
+========== BILAN DES TESTS ==========
+Etats intermediaires : REUSSITE
+Chiffrement final    : REUSSITE
+Resultat global      : SUCCES
+=====================================
+```
+
+## 4 – Difficultés
+
+- **Expansion de clé (`expandKey`)** : difficulté majeure et partie la plus longue. Découpage en mots, `RotWord`, `SubWord`, `Rcon` et indexation : une seule erreur se propage à toutes les sous-clés suivantes. Il a fallu distinguer clairement les mots (44) des sous-clés (11 × 4 mots), puis valider le résultat sur les valeurs officielles des sous-clés 1 et 10.
+- **Conception de l'arborescence** : poser le problème et concevoir une structure simple, qui ne complique pas le projet mais fait gagner du temps.
+- **Chaîne de compilation sous Windows** : mise en place de CMake, MinGW et des variables d'environnement.
+- **Transformations** (`SubBytes`, `ShiftRows`, `MixColumns`, `AddRoundKey`) : débogage et tests validés grâce aux valeurs intermédiaires du tour 1 et aux vecteurs officiels du FIPS 197.
+
+## 5 – Annexe : pseudo-code de KeyExpansion
+
+Figure 11 du FIPS 197 (*Pseudo Code for Key Expansion*) :
+
+```
+KeyExpansion(byte key[4*Nk], word w[Nb*(Nr+1)], Nk)
+begin
+   word temp
+
+   i = 0
+
+   while (i < Nk)
+      w[i] = word(key[4*i], key[4*i+1], key[4*i+2], key[4*i+3])
+      i = i+1
+   end while
+
+   i = Nk
+
+   while (i < Nb * (Nr+1))
+      temp = w[i-1]
+      if (i mod Nk = 0)
+         temp = SubWord(RotWord(temp)) xor Rcon[i/Nk]
+      else if (Nk > 6 and i mod Nk = 4)
+         temp = SubWord(temp)
+      end if
+      w[i] = w[i-Nk] xor temp
+      i = i + 1
+   end while
+end
+```
+
+> Nk = 4, 6 et 8 n'ont pas tous à être implémentés ; ils sont tous inclus dans la condition ci-dessus par concision. Seul Nk = 4 est nécessaire pour AES-128.
+
+## Référence
+
+- NIST, *FIPS 197 – Advanced Encryption Standard (AES)*

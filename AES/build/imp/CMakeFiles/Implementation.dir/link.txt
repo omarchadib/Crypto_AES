@@ -1,0 +1,2 @@
+C:\msys64\ucrt64\bin\ar.exe qc libImplementation.a CMakeFiles/Implementation.dir/src/Transforms.cpp.obj CMakeFiles/Implementation.dir/src/KeySchedule.cpp.obj CMakeFiles/Implementation.dir/src/Cipher.cpp.obj
+C:\msys64\ucrt64\bin\ranlib.exe libImplementation.a
